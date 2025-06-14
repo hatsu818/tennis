@@ -43,7 +43,7 @@
             margin-top: 10px;
         }
         
-        .restart-btn {
+        .btn {
             background-color: #ff6b6b;
             color: white;
             border: none;
@@ -53,9 +53,14 @@
             cursor: pointer;
             margin-top: 10px;
         }
-        
-        .restart-btn:hover {
+
+        .btn:hover {
             background-color: #ff5252;
+        }
+
+        .options {
+            margin-top: 10px;
+            color: white;
         }
     </style>
 </head>
@@ -71,12 +76,34 @@
         <div class="controls">
             矢印キー↑↓でパドルを操作
         </div>
-        <button class="restart-btn" onclick="resetGame()">リスタート</button>
+        <div class="options">
+            <label for="difficultySelect">難易度:</label>
+            <select id="difficultySelect">
+                <option value="easy">イージー</option>
+                <option value="normal" selected>ノーマル</option>
+                <option value="hard">ハード</option>
+            </select>
+            <div>
+                <button class="btn" id="startBtn">スタート</button>
+                <button class="btn" onclick="resetGame()">リスタート</button>
+            </div>
+            <div id="gameOver" style="display:none;margin-top:10px;">ゲーム終了</div>
+        </div>
     </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const startBtn = document.getElementById('startBtn');
+        const difficultySelect = document.getElementById('difficultySelect');
+        const gameOverEl = document.getElementById('gameOver');
+
+        let gameRunning = false;
+        const difficulties = {
+            easy: { ballSpeed: 4, computerSpeed: 5 },
+            normal: { ballSpeed: 5, computerSpeed: 6 },
+            hard: { ballSpeed: 6, computerSpeed: 7 }
+        };
         
         // ゲーム状態
         let gameState = {
@@ -218,10 +245,12 @@
         
         // ボールのリセット
         function resetBall() {
+            const diff = difficulties[difficultySelect.value];
             gameState.ball.x = canvas.width / 2;
             gameState.ball.y = canvas.height / 2;
-            gameState.ball.dx = (Math.random() > 0.5 ? 1 : -1) * 5;
-            gameState.ball.dy = (Math.random() - 0.5) * 6;
+            gameState.ball.dx = (Math.random() > 0.5 ? 1 : -1) * diff.ballSpeed;
+            gameState.ball.dy = (Math.random() - 0.5) * diff.ballSpeed;
+            gameState.computer.speed = diff.computerSpeed;
         }
         
         // ゲームのリセット
@@ -233,10 +262,14 @@
             gameState.player.y = canvas.height / 2 - 50;
             gameState.computer.y = canvas.height / 2 - 50;
             resetBall();
+            gameRunning = false;
+            gameOverEl.style.display = 'none';
         }
         
         // メインゲームループ
         function gameLoop() {
+            if (!gameRunning) return;
+
             // 画面をクリア
             ctx.fillStyle = '#4a7c2a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -253,12 +286,28 @@
             drawPaddle(gameState.player);
             drawPaddle(gameState.computer);
             drawBall();
-            
-            requestAnimationFrame(gameLoop);
+
+            checkGameOver();
+            if (gameRunning) {
+                requestAnimationFrame(gameLoop);
+            }
         }
-        
-        // ゲーム開始
-        gameLoop();
+
+        function checkGameOver() {
+            if (gameState.score.player >= 5 || gameState.score.computer >= 5) {
+                gameRunning = false;
+                gameOverEl.style.display = 'block';
+            }
+        }
+
+        function startGame() {
+            resetGame();
+            gameRunning = true;
+            resetBall();
+            gameLoop();
+        }
+
+        startBtn.addEventListener('click', startGame);
     </script>
 </body>
 </html>
