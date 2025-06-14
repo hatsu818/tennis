@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>テニスゲーム</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #2d5016;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+        
+        .game-container {
+            text-align: center;
+            background-color: #1a4010;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        
+        canvas {
+            border: 3px solid white;
+            background-color: #4a7c2a;
+            display: block;
+            margin: 0 auto 20px;
+        }
+        
+        .score {
+            color: white;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .controls {
+            color: white;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        
+        .restart-btn {
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .restart-btn:hover {
+            background-color: #ff5252;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 style="color: white;">テニスゲーム</h1>
+        <div class="score">
+            <span>プレイヤー: <span id="playerScore">0</span></span>
+            <span style="margin: 0 40px;">|</span>
+            <span>コンピューター: <span id="computerScore">0</span></span>
+        </div>
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <div class="controls">
+            矢印キー↑↓でパドルを操作
+        </div>
+        <button class="restart-btn" onclick="resetGame()">リスタート</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // ゲーム状態
+        let gameState = {
+            ball: {
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                dx: 5,
+                dy: 3,
+                radius: 8
+            },
+            player: {
+                x: 20,
+                y: canvas.height / 2 - 50,
+                width: 10,
+                height: 100,
+                speed: 8
+            },
+            computer: {
+                x: canvas.width - 30,
+                y: canvas.height / 2 - 50,
+                width: 10,
+                height: 100,
+                speed: 6
+            },
+            score: {
+                player: 0,
+                computer: 0
+            },
+            keys: {}
+        };
+        
+        // キーボードイベント
+        document.addEventListener('keydown', (e) => {
+            gameState.keys[e.key] = true;
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            gameState.keys[e.key] = false;
+        });
+        
+        // パドルの描画
+        function drawPaddle(paddle) {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+        }
+        
+        // ボールの描画
+        function drawBall() {
+            ctx.fillStyle = 'yellow';
+            ctx.beginPath();
+            ctx.arc(gameState.ball.x, gameState.ball.y, gameState.ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // 中央線の描画
+        function drawCenterLine() {
+            ctx.strokeStyle = 'white';
+            ctx.setLineDash([5, 15]);
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        
+        // プレイヤーの移動
+        function movePlayer() {
+            if (gameState.keys['ArrowUp'] && gameState.player.y > 0) {
+                gameState.player.y -= gameState.player.speed;
+            }
+            if (gameState.keys['ArrowDown'] && gameState.player.y < canvas.height - gameState.player.height) {
+                gameState.player.y += gameState.player.speed;
+            }
+        }
+        
+        // コンピューターAI
+        function moveComputer() {
+            const paddleCenter = gameState.computer.y + gameState.computer.height / 2;
+            const ballY = gameState.ball.y;
+            
+            if (paddleCenter < ballY - 35) {
+                gameState.computer.y += gameState.computer.speed;
+            } else if (paddleCenter > ballY + 35) {
+                gameState.computer.y -= gameState.computer.speed;
+            }
+            
+            // 境界チェック
+            if (gameState.computer.y < 0) gameState.computer.y = 0;
+            if (gameState.computer.y > canvas.height - gameState.computer.height) {
+                gameState.computer.y = canvas.height - gameState.computer.height;
+            }
+        }
+        
+        // ボールの移動と衝突判定
+        function moveBall() {
+            gameState.ball.x += gameState.ball.dx;
+            gameState.ball.y += gameState.ball.dy;
+            
+            // 上下の壁との衝突
+            if (gameState.ball.y <= gameState.ball.radius || gameState.ball.y >= canvas.height - gameState.ball.radius) {
+                gameState.ball.dy = -gameState.ball.dy;
+            }
+            
+            // プレイヤーパドルとの衝突
+            if (gameState.ball.x <= gameState.player.x + gameState.player.width &&
+                gameState.ball.y >= gameState.player.y &&
+                gameState.ball.y <= gameState.player.y + gameState.player.height &&
+                gameState.ball.dx < 0) {
+                
+                gameState.ball.dx = -gameState.ball.dx;
+                // パドルの位置によってボールの角度を変更
+                const hitPos = (gameState.ball.y - gameState.player.y) / gameState.player.height;
+                gameState.ball.dy = (hitPos - 0.5) * 8;
+            }
+            
+            // コンピューターパドルとの衝突
+            if (gameState.ball.x >= gameState.computer.x &&
+                gameState.ball.y >= gameState.computer.y &&
+                gameState.ball.y <= gameState.computer.y + gameState.computer.height &&
+                gameState.ball.dx > 0) {
+                
+                gameState.ball.dx = -gameState.ball.dx;
+                // パドルの位置によってボールの角度を変更
+                const hitPos = (gameState.ball.y - gameState.computer.y) / gameState.computer.height;
+                gameState.ball.dy = (hitPos - 0.5) * 8;
+            }
+            
+            // 得点判定
+            if (gameState.ball.x < 0) {
+                gameState.score.computer++;
+                document.getElementById('computerScore').textContent = gameState.score.computer;
+                resetBall();
+            } else if (gameState.ball.x > canvas.width) {
+                gameState.score.player++;
+                document.getElementById('playerScore').textContent = gameState.score.player;
+                resetBall();
+            }
+        }
+        
+        // ボールのリセット
+        function resetBall() {
+            gameState.ball.x = canvas.width / 2;
+            gameState.ball.y = canvas.height / 2;
+            gameState.ball.dx = (Math.random() > 0.5 ? 1 : -1) * 5;
+            gameState.ball.dy = (Math.random() - 0.5) * 6;
+        }
+        
+        // ゲームのリセット
+        function resetGame() {
+            gameState.score.player = 0;
+            gameState.score.computer = 0;
+            document.getElementById('playerScore').textContent = '0';
+            document.getElementById('computerScore').textContent = '0';
+            gameState.player.y = canvas.height / 2 - 50;
+            gameState.computer.y = canvas.height / 2 - 50;
+            resetBall();
+        }
+        
+        // メインゲームループ
+        function gameLoop() {
+            // 画面をクリア
+            ctx.fillStyle = '#4a7c2a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 中央線を描画
+            drawCenterLine();
+            
+            // ゲーム要素を移動
+            movePlayer();
+            moveComputer();
+            moveBall();
+            
+            // ゲーム要素を描画
+            drawPaddle(gameState.player);
+            drawPaddle(gameState.computer);
+            drawBall();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // ゲーム開始
+        gameLoop();
+    </script>
+</body>
+</html>
